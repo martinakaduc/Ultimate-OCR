@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1023737749247",
+    "project_id": "awesome-ocr",
+    "storage_bucket": "awesome-ocr.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1023737749247:android:bf2857080dc88b73ebb6ca",
+        "android_client_info": {
+          "package_name": "com.example.abdulrehman.ocr"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1023737749247-q2cfeevjda3o6ape3qfd5vffaj4ea0go.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBrY7GVFY0qi8KZ2a5t3WQuQbZPlCDEBPs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1023737749247-q2cfeevjda3o6ape3qfd5vffaj4ea0go.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

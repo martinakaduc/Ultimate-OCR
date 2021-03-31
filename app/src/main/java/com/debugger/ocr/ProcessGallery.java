@@ -11,25 +11,24 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Scroller;
-import android.widget.Switch;
 import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -46,20 +45,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class ProcessGallery extends AppCompatActivity {
 
 
-    Bitmap bitmap, singleBitmap, bitmapArray[];
+    Bitmap bitmap;
+    Bitmap singleBitmap;
+    Bitmap[] bitmapArray;
     EditText etText;
-    Button btnMultipleImages, btnSingleImage, btnCopy, btnClear, btnDetect;
+    Button btnMultipleImages, btnSingleImage, btnCopy, btnClear, btnDetect, btnServer;
     ImageView ivScreenShot;
-    String numbers;
-    Switch scNumber;
     List<Task<FirebaseVisionText>> results;
-    Boolean check = false;
     ProgressDialog progressDialog;
-
+    String resultStr = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,7 +68,6 @@ public class ProcessGallery extends AppCompatActivity {
 
         initViews();
         setListeners();
-
 
     }
 
@@ -84,8 +82,8 @@ public class ProcessGallery extends AppCompatActivity {
         ivScreenShot = findViewById(R.id.ivScreenShot);
         btnClear = findViewById(R.id.btnClear);
         btnCopy = findViewById(R.id.btnCopy);
+        btnServer = findViewById(R.id.btnServer);
         btnSingleImage = findViewById(R.id.btnSingleImage);
-        scNumber = findViewById(R.id.scNumber);
         progressDialog = new ProgressDialog(this);
     }
 
@@ -123,25 +121,16 @@ public class ProcessGallery extends AppCompatActivity {
         btnCopy.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-               /* numbers = numbers.replace("\n",";");
-                Intent sendIntent = new Intent(Intent.ACTION_SENDTO, Uri.parse("sms:" + numbers));
-                sendIntent.putExtra("address", numbers);
-                sendIntent.putExtra("sms_body", "");
-                startActivity(sendIntent);*/
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                 ClipData clip = ClipData.newPlainText("Copied", etText.getText().toString());
                 clipboard.setPrimaryClip(clip);
             }
         });
-
-        scNumber.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+        btnServer.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked)
-                    check = true;
-                else
-                    check = false;
-
+            public void onClick(View v) {
+                // TODO
+                // Send resultStr to server here
             }
         });
     }
@@ -164,25 +153,15 @@ public class ProcessGallery extends AppCompatActivity {
                 results.add(firebaseVisionTextDetector.processImage(firebaseVisionImage).addOnSuccessListener(new OnSuccessListener<FirebaseVisionText>() {
                     @Override
                     public void onSuccess(FirebaseVisionText firebaseVisionText) {
+                        drawBBox(results);
                         processText(results);
+//                        for (Task<FirebaseVisionText> result : results) {
+//                            String resultText = result.getResult().getText();
+//                            System.out.print(resultText);
+//                        }
                     }
                 }));
-
-            }
-        /*   else if(bitmap!=null)
-            {
-                FirebaseVisionImage firebaseVisionImage = FirebaseVisionImage.fromBitmap(bitmap);
-
-                FirebaseApp.initializeApp(this);
-                FirebaseVisionTextRecognizer firebaseVisionTextDetector = FirebaseVision.getInstance().getOnDeviceTextRecognizer();
-                results = firebaseVisionTextDetector.processImage(firebaseVisionImage).addOnSuccessListener(new OnSuccessListener<FirebaseVisionText>() {
-                    @Override
-                    public void onSuccess(FirebaseVisionText firebaseVisionText) {
-                        processText(results);
-                    }
-                });
-            }*/
-            else {
+            } else {
 
                 progressDialog.setTitle("Uploading...");
                 progressDialog.show();
@@ -190,9 +169,7 @@ public class ProcessGallery extends AppCompatActivity {
                 FirebaseApp.initializeApp(this);
                 FirebaseVisionTextRecognizer fireBaseVisionTextDetector = FirebaseVision.getInstance().getOnDeviceTextRecognizer();
                 for (Bitmap bit : bitmapArray) {
-
                     if (bit != null) {
-
                         FirebaseVisionImage firebaseVisionImage = FirebaseVisionImage.fromBitmap(bit);
 
                         results.add(fireBaseVisionTextDetector.processImage(firebaseVisionImage).addOnCompleteListener(new OnCompleteListener<FirebaseVisionText>() {
@@ -200,11 +177,8 @@ public class ProcessGallery extends AppCompatActivity {
                             public void onComplete(@NonNull Task<FirebaseVisionText> task) {
                                 //complete
                                 if (task.isSuccessful()) {
-
                                     if (processText(results)) {
                                         results = null;
-                                        return;
-
                                     }
                                 }
                             }
@@ -217,69 +191,46 @@ public class ProcessGallery extends AppCompatActivity {
         }
     }
 
-    //detect numbers from image
-    public void process_text(FirebaseVisionText firebaseVisionText) {
+    public void drawBBox(List<Task<FirebaseVisionText>> results) {
+        try {
+            for (Task<FirebaseVisionText> res : results) {
+                List<FirebaseVisionText.TextBlock> bboxes = Objects.requireNonNull(res.getResult()).getTextBlocks();
+                for (FirebaseVisionText.TextBlock bbox : bboxes) {
+                    android.graphics.Rect rect = bbox.getBoundingBox();
 
-        List<FirebaseVisionText.TextBlock> blocks = firebaseVisionText.getTextBlocks();
+                    singleBitmap = ((BitmapDrawable) ivScreenShot.getDrawable()).getBitmap().copy(Bitmap.Config.ARGB_8888, true);
+                    ivScreenShot.setImageBitmap(null);
 
-        if (blocks.size() == 0) {
-            Toast.makeText(getApplicationContext(), "Nothing detected", Toast.LENGTH_SHORT).show();
-        } else {
-            for (FirebaseVisionText.TextBlock block : firebaseVisionText.getTextBlocks()) {
-                numbers = block.getText();
-                final Rect boundingBox = block.getBoundingBox();
-                etText.setText(numbers);
+                    Canvas canvas = new Canvas(singleBitmap);
+
+                    Paint boxPaint = new Paint();
+                    boxPaint.setColor(Color.BLUE);
+                    boxPaint.setStyle(Paint.Style.STROKE);
+                    boxPaint.setStrokeWidth(1.0f);
+
+                    canvas.drawRect(Objects.requireNonNull(rect), boxPaint);
+                    ivScreenShot.setImageBitmap(singleBitmap);
+                    ivScreenShot.draw(canvas);
+//                    save(singleBitmap,"Galaxy S8\\Phone\\Android\\data\\ocr\\a.png");
+                }
             }
+        } catch (Exception ex) {
+            Log.d("Issue", ex.getMessage());
         }
     }
 
     public boolean processText(List<Task<FirebaseVisionText>> results) {
 
         try {
-            if (results.size() == bitmapArray.length) {
-
-                List<String> allText = new ArrayList<>();
-                for (Task<FirebaseVisionText> result : results) {
-
-                    String resultText = result.getResult().getText();
-                    //resultText = resultText.replace(" ", "");
-                    resultText = resultText.replace("-", "");
-                    resultText = resultText.replace("(", "");
-                    resultText = resultText.replace(")", "");
-                    resultText = resultText.replace("]", "");
-                    String str[] = resultText.split("\n");
-
-                    for (String i : str) {
-                        boolean stringCheck = false;
-                        for (String j : allText) {
-
-
-                            if (i.equals(j))
-                                stringCheck = true;
-
-                        }
-                        if (!stringCheck)
-                            if (check && i.matches("^(\\+\\d{1,9}[- ]?)?\\d{3}[ ]?\\d{7}$")) {
-                                allText.add(i);
-                                allText.add("\n");
-                               // Toast.makeText(getApplicationContext(), "Done: matching numbers", Toast.LENGTH_SHORT).show();
-                            } else if (!check) {
-                                allText.add(i);
-                                allText.add("\n");
-                            }
-
-
-                    }
-
-
-                }
-                String finalText = allText.toString().replace("[","");
-                finalText = finalText.replace(",","");
-                finalText = finalText.replace("]","");
-                etText.append(finalText);
-                progressDialog.dismiss();
-                Toast.makeText(getApplicationContext(), "Done", Toast.LENGTH_SHORT).show();
+            StringBuilder finalText = new StringBuilder();
+            for (Task<FirebaseVisionText> result : results) {
+                finalText.append(Objects.requireNonNull(result.getResult()).getText());
             }
+            resultStr = finalText.toString();
+            System.out.println(finalText);
+            etText.append(finalText);
+            progressDialog.dismiss();
+            Toast.makeText(getApplicationContext(), "Done", Toast.LENGTH_SHORT).show();
             return true;
         } catch (Exception ex) {
             Log.d("Issue", ex.getMessage());
@@ -315,51 +266,12 @@ public class ProcessGallery extends AppCompatActivity {
                 intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                 startActivityForResult(Intent.createChooser(intent, "Select Picture"), 1);
             }
-            /*else
-            {
-                Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI);
-                startActivityForResult(i,1);
-            }*/
-
 
         } catch (Exception e) {
             e.printStackTrace();
         }
 
     }
-
-    /*@Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode ==1 && resultCode== RESULT_OK)
-        {
-            Uri uri = data.getData();
-            try {
-                //reading image from uri
-
-               final InputStream imageStream = getContentResolver().openInputStream(uri);
-                bitmap = BitmapFactory.decodeStream(imageStream);
-                bitmap = get_rotated(uri,bitmap);
-
-
-                if(bitmap!=null) {
-                    Log.d("displaying","Done");
-                    img.setImageBitmap(bitmap);
-                    //Toast.makeText(getApplicationContext(),"Image", Toast.LENGTH_SHORT).show();
-                }
-                else {
-                    Log.d("displaying","none");
-                    //Toast.makeText(getApplicationContext(), "No image", Toast.LENGTH_SHORT).show();
-                }
-
-            }
-            catch (Exception ex)
-            {
-                Log.d("displaying",ex.getMessage());
-            }
-        }
-    }*/
 
     private Bitmap mergeMultiple(Bitmap[] parts) {
 
@@ -397,12 +309,12 @@ public class ProcessGallery extends AppCompatActivity {
                             e.printStackTrace();
                         }
 
-
                         //do something with the image (save it to some directory or whatever you need to do with it here)
                     }
                     try {
                         bitmap = mergeMultiple(bitmapArray);
-                        singleBitmap = null;
+//                        singleBitmap = null;
+                        singleBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
                         ivScreenShot.setImageBitmap(bitmap);
                     } catch (Exception ex) {
                         Toast.makeText(getApplicationContext(), "Select max 4 pictures", Toast.LENGTH_SHORT).show();

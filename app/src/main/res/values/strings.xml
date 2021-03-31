@@ -1,3 +1,14 @@
 <resources>
     <string name="app_name">Ultimate OCR</string>
+    <string name="no_text" />
+    <string name="camera">Camera</string>
+    <string name="gallery">Gallery</string>
+    <string name="u00a9_2019_debugger">© 2021 Debugger</string>
+    <string name="ocr">OCR</string>
+    <string name="images">Images</string>
+    <string name="image">Image</string>
+    <string name="detect">Detect</string>
+    <string name="clear">Clear</string>
+    <string name="copy">Copy</string>
+    <string name="server">Server</string>
 </resources>
